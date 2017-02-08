@@ -21,6 +21,8 @@
 # ./zk-sniffer -port=4181 -file=1.pcap
 ```
 
+```Timestamp ClientAddr ServerAddr OpType Path Zxid ReqLength RespLength Latency```
+
 ## Screenshot
 
 ![](http://wx4.sinaimg.cn/mw690/6f6a4381ly1fcjaly09eej213e0hkgxg.jpg)
