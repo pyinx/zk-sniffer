@@ -14,12 +14,13 @@
 
 ## How to use
 
-``
+```
 ###### read data from device
 # ./zk-sniffer -port=4181 -device=eth0
 ###### read data from pcap file
 # ./zk-sniffer -port=4181 -file=1.pcap
-``
+```
+
 ## Screenshot
 
 ![](http://wx4.sinaimg.cn/mw690/6f6a4381ly1fcjaly09eej213e0hkgxg.jpg)
