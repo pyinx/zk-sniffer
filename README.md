@@ -33,6 +33,7 @@ Timestamp ClientAddr ServerAddr OpType Path Zxid ReqLength RespLength Latency
 ## Reference
 
 - [https://github.com/twitter/zktraffic](https://github.com/twitter/zktraffic)
+- [https://github.com/phunt/zookeeper-digest](https://github.com/phunt/zookeeper-digest)
 - [https://github.com/samuel/go-zookeeper](https://github.com/samuel/go-zookeeper)
-
+- [https://github.com/xianmau/gozk](https://github.com/xianmau/gozk)
 
