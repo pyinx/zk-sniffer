@@ -19,9 +19,8 @@ var (
 	err         error
 	// timeout     time.Duration = -1 * time.Second
 	handle     *pcap.Handle
-	ethLayer   layers.Ethernet
-	ipLayer    layers.IPv4
-	tcpLayer   layers.TCP
+	ipLayer    *layers.IPv4
+	tcpLayer   *layers.TCP
 	deviceName *string
 	zkPort     *int
 	pcapFile   *string
@@ -74,30 +73,27 @@ func main() {
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	con_map := make(map[uint32]ConnInfo)
 	for packet := range packetSource.Packets() {
-		parser := gopacket.NewDecodingLayerParser(
-			layers.LayerTypeEthernet,
-			&ethLayer,
-			&ipLayer,
-			&tcpLayer,
-		)
-		// Process packet here
-		foundLayerTypes := []gopacket.LayerType{}
-		parser.DecodeLayers(packet.Data(), &foundLayerTypes)
-		if len(packet.Layers()) == 4 {
+		if len(packet.Layers()) > 3 { //LayerTypeEthernet&&LayerTypeIPv4&&LayerTypeTCP&&LayerCustom
 			info := ConnInfo{}
 			var ack_id uint32
 			var seq_id uint32
 			for _, layer := range packet.Layers() {
 				switch layer.LayerType() {
 				case layers.LayerTypeEthernet:
+				case layers.LayerTypeLinuxSLL:
 				case layers.LayerTypeIPv4:
-					info.ClientAddr = fmt.Sprintf("%s", ipLayer.SrcIP)
-					info.ServerAddr = fmt.Sprintf("%s", ipLayer.DstIP)
+					ipP := gopacket.NewPacket(layer.LayerContents(), layers.LayerTypeIPv4, gopacket.NoCopy)
+					ipLayer = ipP.Layers()[0].(*layers.IPv4)
+					info.ClientAddr = ipLayer.SrcIP.String()
+					info.ServerAddr = ipLayer.DstIP.String()
 				case layers.LayerTypeTCP:
+					ipP := gopacket.NewPacket(layer.LayerContents(), layers.LayerTypeTCP, gopacket.NoCopy)
+					tcpLayer = ipP.Layers()[0].(*layers.TCP)
 					ack_id = tcpLayer.Ack
 					seq_id = tcpLayer.Seq
 					info.ClientAddr = fmt.Sprintf("%s:%d", info.ClientAddr, tcpLayer.SrcPort)
 					info.ServerAddr = fmt.Sprintf("%s:%d", ipLayer.DstIP, tcpLayer.DstPort)
+				// case gopacket.LayerTypePayload:
 				default:
 					if int(tcpLayer.DstPort) == *zkPort {
 						p := gopacket.NewPacket(layer.LayerContents(), LayerTypeZKReq, gopacket.Default)
