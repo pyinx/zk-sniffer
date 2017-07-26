@@ -36,7 +36,7 @@ type ConnInfo struct {
 	ReqLen     int
 	RespLen    int
 	Latency    string
-	Error      int
+	Error      int32
 }
 
 func init() {
@@ -96,7 +96,7 @@ func main() {
 				// case gopacket.LayerTypePayload:
 				default:
 					if int(tcpLayer.DstPort) == *zkPort {
-						p := gopacket.NewPacket(layer.LayerContents(), LayerTypeZKReq, gopacket.Default)
+						p := gopacket.NewPacket(layer.LayerContents(), LayerTypeZKReq, gopacket.NoCopy)
 						zkReqLayer, ok := p.Layers()[0].(*ZKReq)
 						if !ok {
 							continue
@@ -111,14 +111,14 @@ func main() {
 						reqInfo, ok := con_map[seq_id]
 						if ok {
 							con_map = map[uint32]ConnInfo{} //清空map,防止map无限增大
-							p := gopacket.NewPacket(layer.LayerContents(), LayerTypeZKResp, gopacket.Default)
+							p := gopacket.NewPacket(layer.LayerContents(), LayerTypeZKResp, gopacket.NoCopy)
 							zkRespLayer := p.Layers()[0].(*ZKResp)
 							if !ok {
 								continue
 							}
 							reqInfo.Zxid = zkRespLayer.Zxid
-							reqInfo.Error = int(zkRespLayer.Err)
-							if reqInfo.OpType == "CONNECT" && reqInfo.Zxid == 42949695585060 {
+							reqInfo.Error = int32(zkRespLayer.Err)
+							if reqInfo.OpType == "CONNECT" {
 								reqInfo.Error = 0
 							}
 							if reqInfo.Path == "" {

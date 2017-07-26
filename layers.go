@@ -1,130 +1,16 @@
 package main
 
 import (
-	// "encoding/binary"
-	// "errors"
-	"log"
+	"fmt"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 )
 
 var (
-	// LayerTypeZKConReq  = gopacket.RegisterLayerType(2001, gopacket.LayerTypeMetadata{Name: "ZKConReq", Decoder: gopacket.DecodeFunc(decodeZKConReq)})
-	// LayerTypeZKConResp = gopacket.RegisterLayerType(2002, gopacket.LayerTypeMetadata{Name: "ZKConResp", Decoder: gopacket.DecodeFunc(decodeZKConResp)})
 	LayerTypeZKReq  = gopacket.RegisterLayerType(2003, gopacket.LayerTypeMetadata{Name: "ZKReq", Decoder: gopacket.DecodeFunc(decodeZKReq)})
 	LayerTypeZKResp = gopacket.RegisterLayerType(2004, gopacket.LayerTypeMetadata{Name: "ZKResp", Decoder: gopacket.DecodeFunc(decodeZKResp)})
 )
-
-// type ZKConReq struct {
-// 	layers.BaseLayer
-
-// 	ProtocolVersion int32
-// 	LastZxidSeen    int64
-// 	TimeOut         int32
-// 	SessionID       int64
-// 	Passwd          []byte
-// }
-
-// func (z *ZKConReq) LayerType() gopacket.LayerType {
-// 	return LayerTypeZKConReq
-// }
-
-// func decodeZKConReq(data []byte, p gopacket.PacketBuilder) error {
-// 	log.Println("start decode zk con req packet")
-// 	z := &ZKConReq{}
-// 	err := z.DecodeFromBytes(data, p)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	log.Printf("decode req con strcut: %#v\n", z)
-// 	p.AddLayer(z)
-// 	p.SetApplicationLayer(z)
-// 	return nil
-// }
-
-// func (z *ZKConReq) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-// 	if len(data) < 28 {
-// 		return ErrShortBuffer
-// 	}
-// 	// z.BaseLayer = layers.BaseLayer{Contents: data[:]}
-// 	z.ProtocolVersion = BytesToInt32(data[4:8])
-// 	z.LastZxidSeen = BytesToInt64(data[8:16])
-// 	z.TimeOut = BytesToInt32(data[16:20])
-// 	z.SessionID = BytesToInt64(data[20:28])
-// 	passLen := BytesToInt32(data[28:])
-// 	if passLen != 16 {
-// 		return ErrUnknownPacket
-// 	}
-// 	z.Passwd = data[28 : 28+passLen]
-// 	return nil
-// }
-
-// func (z *ZKConReq) CanDecode() gopacket.LayerClass {
-// 	return LayerTypeZKConReq
-// }
-
-// func (z *ZKConReq) NextLayerType() gopacket.LayerType {
-// 	return gopacket.LayerTypePayload
-// }
-
-// func (z *ZKConReq) Payload() []byte {
-// 	return nil
-// }
-
-// type ZKConResp struct {
-// 	layers.BaseLayer
-
-// 	ProtocolVersion int32
-// 	TimeOut         int32
-// 	SessionID       int64
-// 	Passwd          []byte
-// }
-
-// func (z *ZKConResp) LayerType() gopacket.LayerType {
-// 	return LayerTypeZKConResp
-// }
-
-// func decodeZKConResp(data []byte, p gopacket.PacketBuilder) error {
-// 	log.Println("start decode zk con resp packet")
-// 	z := &ZKConResp{}
-// 	err := z.DecodeFromBytes(data, p)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	log.Printf("decode resp con strcut: %#v\n", z)
-// 	p.AddLayer(z)
-// 	p.SetApplicationLayer(z)
-// 	return nil
-// }
-
-// func (z *ZKConResp) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-// 	if len(data) < 20 {
-// 		return ErrShortBuffer
-// 	}
-// 	// z.BaseLayer = layers.BaseLayer{Contents: data[:]}
-// 	z.ProtocolVersion = BytesToInt32(data[4:8])
-// 	z.TimeOut = BytesToInt32(data[8:12])
-// 	z.SessionID = BytesToInt64(data[12:20])
-// 	passLen := BytesToInt32(data[20:])
-// 	if passLen != 16 {
-// 		return ErrUnknownPacket
-// 	}
-// 	z.Passwd = data[20 : 20+passLen]
-// 	return nil
-// }
-
-// func (z *ZKConResp) CanDecode() gopacket.LayerClass {
-// 	return LayerTypeZKConResp
-// }
-
-// func (z *ZKConResp) NextLayerType() gopacket.LayerType {
-// 	return gopacket.LayerTypePayload
-// }
-
-// func (z *ZKConResp) Payload() []byte {
-// 	return nil
-// }
 
 type ZKReq struct {
 	layers.BaseLayer
@@ -162,9 +48,9 @@ func (z *ZKReq) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	z.Xid = BytesToInt32(data[4:8])
 	z.Opcode = BytesToInt32(data[8:12])
 	switch z.Opcode {
-	case 0: //CONNECT
+	case opNotify:
 		z.Optype = "CONNECT"
-	case 1: //CREATE
+	case opCreate:
 		z.Optype = "CREATE"
 		pathLen := BytesToInt32(data[12:16])
 		n := 16 + pathLen
@@ -172,22 +58,34 @@ func (z *ZKReq) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		dataLen := BytesToInt32(data[n : n+4])
 		n = n + 4
 		z.Data = data[n : n+dataLen]
-	case 2: //DELETE
+	case opDelete:
 		z.Optype = "DELETE"
 		pathLen := BytesToInt32(data[12:16])
 		n := 16 + pathLen
 		z.Path = string(data[16:n])
-	case 3: //EXISTS
+	case opExists:
 		z.Optype = "EXISTS"
 		pathLen := BytesToInt32(data[12:16])
 		n := 16 + pathLen
 		z.Path = string(data[16:n])
-	case 4: //GETDATA
+		if int(n+1) <= len(data) {
+			watch := BytesToBool(data[n : n+1])
+			if watch {
+				z.Optype = "EXISTS_W"
+			}
+		}
+	case opGetData:
 		z.Optype = "GETDATA"
 		pathLen := BytesToInt32(data[12:16])
 		n := 16 + pathLen
 		z.Path = string(data[16:n])
-	case 5: //SETDATA
+		if int(n+1) <= len(data) {
+			watch := BytesToBool(data[n : n+1])
+			if watch {
+				z.Optype = "GETDATA_W"
+			}
+		}
+	case opSetData:
 		z.Optype = "SETDATA"
 		pathLen := BytesToInt32(data[12:16])
 		n := 16 + pathLen
@@ -195,42 +93,68 @@ func (z *ZKReq) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		dataLen := BytesToInt32(data[n : n+4])
 		n = n + 4
 		z.Data = data[n : n+dataLen]
-	case 6: //GETACL
+	case opGetAcl:
 		z.Optype = "GETACL"
-	case 7: //SETACL
+		pathLen := BytesToInt32(data[12:16])
+		n := 16 + pathLen
+		z.Path = string(data[16:n])
+	case opSetAcl:
 		z.Optype = "SETACL"
-	case 8: //GETCHILDREN
+		pathLen := BytesToInt32(data[12:16])
+		n := 16 + pathLen
+		z.Path = string(data[16:n])
+	case opGetChildren:
 		z.Optype = "GETCHILDREN"
 		pathLen := BytesToInt32(data[12:16])
 		n := 16 + pathLen
 		z.Path = string(data[16:n])
-	case 9: //SYNC
+		if int(n+1) <= len(data) {
+			watch := BytesToBool(data[n : n+1])
+			if watch {
+				z.Optype = "GETCHILDREN_W"
+			}
+		}
+	case opSync:
 		z.Optype = "SYNC"
-	case 11: //PING
+		pathLen := BytesToInt32(data[12:16])
+		n := 16 + pathLen
+		z.Path = string(data[16:n])
+	case opPing:
 		z.Optype = "PING"
-	case 12: //GETCHILDREN2
+	case opGetChildren2:
 		z.Optype = "GETCHILDREN2"
 		pathLen := BytesToInt32(data[12:16])
 		n := 16 + pathLen
 		z.Path = string(data[16:n])
-	case 13: //CHECK
+		if int(n+1) <= len(data) {
+			watch := BytesToBool(data[n : n+1])
+			if watch {
+				z.Optype = "GETCHILDREN2_W"
+			}
+		}
+	case opCheck:
 		z.Optype = "CHECK"
-	case 14: //MULTI
+	case opMulti:
 		z.Optype = "MULTI"
-	case 15: //CREATE2
+	case opCreate2:
 		z.Optype = "CREATE2"
-	case 16: //RECONFIG
+		pathLen := BytesToInt32(data[12:16])
+		n := 16 + pathLen
+		z.Path = string(data[16:n])
+	case opReconfig:
 		z.Optype = "RECONFIG"
-	case -10: //CREATESESSION
+	case opError:
+		z.Optype = "ERROR"
+	case opCreateSession:
 		z.Optype = "CREATESESSION"
-	case -11: //CLOSE
+	case opClose:
 		z.Optype = "CLOSE"
-	case 100: //SETAUTH
+	case opSetAuth:
 		z.Optype = "SETAUTH"
-	case 101: //SETWATCHES
+	case opSetWatches:
 		z.Optype = "SETWATCHES"
 	default:
-		log.Printf("Unknown Opcode: %d\n", z.Opcode)
+		fmt.Printf("Unknown Opcode: %d\n", z.Opcode)
 	}
 	return nil
 }

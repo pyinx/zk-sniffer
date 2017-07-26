@@ -4,94 +4,36 @@ import (
 	"errors"
 )
 
-const (
-	protocolVersion = 0
-)
-
-const (
-	opNotify       = 0
-	opCreate       = 1
-	opDelete       = 2
-	opExists       = 3
-	opGetData      = 4
-	opSetData      = 5
-	opGetAcl       = 6
-	opSetAcl       = 7
-	opGetChildren  = 8
-	opSync         = 9
-	opPing         = 11
-	opGetChildren2 = 12
-	opCheck        = 13
-	opMulti        = 14
-	opClose        = -11
-	opSetAuth      = 100
-	opSetWatches   = 101
-	opError        = -1
-	// Not in protocol, used internally
-	opWatcherEvent = -2
-)
-
-const (
-	EventNodeCreated         EventType = 1
-	EventNodeDeleted         EventType = 2
-	EventNodeDataChanged     EventType = 3
-	EventNodeChildrenChanged EventType = 4
-
-	EventSession     EventType = -1
-	EventNotWatching EventType = -2
-)
-
-var (
-	eventNames = map[EventType]string{
-		EventNodeCreated:         "EventNodeCreated",
-		EventNodeDeleted:         "EventNodeDeleted",
-		EventNodeDataChanged:     "EventNodeDataChanged",
-		EventNodeChildrenChanged: "EventNodeChildrenChanged",
-		EventSession:             "EventSession",
-		EventNotWatching:         "EventNotWatching",
-	}
-)
-
-const (
-	StateUnknown           State = -1
-	StateDisconnected      State = 0
-	StateConnecting        State = 1
-	StateAuthFailed        State = 4
-	StateConnectedReadOnly State = 5
-	StateSaslAuthenticated State = 6
-	StateExpired           State = -112
-
-	StateConnected  = State(100)
-	StateHasSession = State(101)
-)
-
-const (
-	FlagEphemeral = 1
-	FlagSequence  = 2
-)
-
-var (
-	stateNames = map[State]string{
-		StateUnknown:           "StateUnknown",
-		StateDisconnected:      "StateDisconnected",
-		StateConnectedReadOnly: "StateConnectedReadOnly",
-		StateSaslAuthenticated: "StateSaslAuthenticated",
-		StateExpired:           "StateExpired",
-		StateAuthFailed:        "StateAuthFailed",
-		StateConnecting:        "StateConnecting",
-		StateConnected:         "StateConnected",
-		StateHasSession:        "StateHasSession",
-	}
-)
-
-type State int32
-
-func (s State) String() string {
-	if name := stateNames[s]; name != "" {
-		return name
-	}
-	return "Unknown"
+type ACL struct {
+	Perms  int32
+	Scheme string
+	ID     string
 }
+
+const (
+	opNotify        = 0
+	opCreate        = 1
+	opDelete        = 2
+	opExists        = 3
+	opGetData       = 4
+	opSetData       = 5
+	opGetAcl        = 6
+	opSetAcl        = 7
+	opGetChildren   = 8
+	opSync          = 9
+	opPing          = 11
+	opGetChildren2  = 12
+	opCheck         = 13
+	opMulti         = 14
+	opCreate2       = 15
+	opReconfig      = 16
+	opError         = -1
+	opWatcherEvent  = -2
+	opCreateSession = -10
+	opClose         = -11
+	opSetAuth       = 100
+	opSetWatches    = 101
+)
 
 type ErrCode int32
 
@@ -111,10 +53,14 @@ var (
 	ErrClosing                 = errors.New("zk: zookeeper is closing")
 	ErrNothing                 = errors.New("zk: no server responsees to process")
 	ErrSessionMoved            = errors.New("zk: session moved to another server, so operation is ignored")
+	ErrUnhandledFieldType      = errors.New("zk: unhandled field type")
+	ErrInvalidCallback         = errors.New("zk: invalid callback specified")
+	ErrPtrExpected             = errors.New("zk: encode/decode expect a non-nil pointer to struct")
+	ErrShortBuffer             = errors.New("zk: buffer too small")
+	ErrUnknownPacket           = errors.New("zk: unknown packet")
 
-	// ErrInvalidCallback         = errors.New("zk: invalid callback specified")
 	errCodeToError = map[ErrCode]error{
-		0:                          nil,
+		errOk:                      nil,
 		errAPIError:                ErrAPIError,
 		errNoNode:                  ErrNoNode,
 		errNoAuth:                  ErrNoAuth,
@@ -123,12 +69,12 @@ var (
 		errNodeExists:              ErrNodeExists,
 		errNotEmpty:                ErrNotEmpty,
 		errSessionExpired:          ErrSessionExpired,
-		// errInvalidCallback:         ErrInvalidCallback,
-		errInvalidAcl:   ErrInvalidACL,
-		errAuthFailed:   ErrAuthFailed,
-		errClosing:      ErrClosing,
-		errNothing:      ErrNothing,
-		errSessionMoved: ErrSessionMoved,
+		errInvalidCallback:         ErrInvalidCallback,
+		errInvalidAcl:              ErrInvalidACL,
+		errAuthFailed:              ErrAuthFailed,
+		errClosing:                 ErrClosing,
+		errNothing:                 ErrNothing,
+		errSessionMoved:            ErrSessionMoved,
 	}
 )
 
@@ -153,11 +99,11 @@ const (
 	errInvalidState         = -9
 	// API errors
 	errAPIError                ErrCode = -100
-	errNoNode                  ErrCode = -101 // *
+	errNoNode                  ErrCode = -101
 	errNoAuth                  ErrCode = -102
-	errBadVersion              ErrCode = -103 // *
+	errBadVersion              ErrCode = -103
 	errNoChildrenForEphemerals ErrCode = -108
-	errNodeExists              ErrCode = -110 // *
+	errNodeExists              ErrCode = -110
 	errNotEmpty                ErrCode = -111
 	errSessionExpired          ErrCode = -112
 	errInvalidCallback         ErrCode = -113
@@ -168,58 +114,77 @@ const (
 	errSessionMoved            ErrCode = -118
 )
 
+type State int32
+
+func (s State) String() string {
+	if name, ok := stateNames[s]; ok {
+		return name
+	}
+	return "Unknown"
+}
+
 const (
-	PermRead   = 1  // 可获取当前节点的数据及所有子节点
-	PermWrite  = 2  // 可向当前节点写数据
-	PermCreate = 4  // 可在当前节点下创建子节点
-	PermDelete = 8  // 可删除当前的节点
-	PermAdmin  = 16 // 可设置当前节点的权限
-	PermAll    = 31 // 拥有以上所有权限
+	StateUnknown           State = -1
+	StateDisconnected      State = 0
+	StateConnecting        State = 1
+	StateAuthFailed        State = 4
+	StateConnectedReadOnly State = 5
+	StateSaslAuthenticated State = 6
+	StateExpired           State = -112
+
+	StateConnected  = State(100)
+	StateHasSession = State(101)
 )
 
 var (
-	WorldACL = []ACL{{PermAll, "world", "anyone"}} // 全局ACL
-)
-
-var (
-	emptyPassword = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	opNames       = map[int32]string{
-		opNotify:       "notify",
-		opCreate:       "create",
-		opDelete:       "delete",
-		opExists:       "exists",
-		opGetData:      "getData",
-		opSetData:      "setData",
-		opGetAcl:       "getACL",
-		opSetAcl:       "setACL",
-		opGetChildren:  "getChildren",
-		opSync:         "sync",
-		opPing:         "ping",
-		opGetChildren2: "getChildren2",
-		opCheck:        "check",
-		opMulti:        "multi",
-		opClose:        "close",
-		opSetAuth:      "setAuth",
-		opSetWatches:   "setWatches",
-
-		opWatcherEvent: "watcherEvent",
+	stateNames = map[State]string{
+		StateUnknown:           "StateUnknown",
+		StateDisconnected:      "StateDisconnected",
+		StateConnectedReadOnly: "StateConnectedReadOnly",
+		StateSaslAuthenticated: "StateSaslAuthenticated",
+		StateExpired:           "StateExpired",
+		StateAuthFailed:        "StateAuthFailed",
+		StateConnecting:        "StateConnecting",
+		StateConnected:         "StateConnected",
+		StateHasSession:        "StateHasSession",
 	}
 )
 
 type EventType int32
 
 func (t EventType) String() string {
-	if name := eventNames[t]; name != "" {
+	if name, ok := eventNames[t]; ok {
 		return name
 	}
 	return "Unknown"
 }
 
+const (
+	EventNodeCreated         EventType = 1
+	EventNodeDeleted         EventType = 2
+	EventNodeDataChanged     EventType = 3
+	EventNodeChildrenChanged EventType = 4
+
+	EventSession     EventType = -1
+	EventNotWatching EventType = -2
+)
+
+var (
+	eventNames = map[EventType]string{
+		EventNodeCreated:         "EventNodeCreated",
+		EventNodeDeleted:         "EventNodeDeleted",
+		EventNodeDataChanged:     "EventNodeDataChanged",
+		EventNodeChildrenChanged: "EventNodeChildrenChanged",
+		EventSession:             "EventSession",
+		EventNotWatching:         "EventNotWatching",
+	}
+)
+
 // Mode is used to build custom server modes (leader|follower|standalone).
 type Mode uint8
 
 func (m Mode) String() string {
-	if name := modeNames[m]; name != "" {
+	if name, ok := modeNames[m]; ok {
 		return name
 	}
 	return "unknown"
