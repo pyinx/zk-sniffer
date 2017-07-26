@@ -69,7 +69,7 @@ func main() {
 	}
 
 	// Start processing packets
-	fmt.Println("Start capture packet...")
+	// fmt.Println("Start capture packet...")
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	con_map := make(map[uint32]ConnInfo)
 	for packet := range packetSource.Packets() {

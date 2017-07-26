@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	// "fmt"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -154,7 +154,8 @@ func (z *ZKReq) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	case opSetWatches:
 		z.Optype = "SETWATCHES"
 	default:
-		fmt.Printf("Unknown Opcode: %d\n", z.Opcode)
+		// fmt.Printf("Unknown Opcode: %d\n", z.Opcode)
+		z.Optype = "UNKNOWN"
 	}
 	return nil
 }
