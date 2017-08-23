@@ -112,7 +112,7 @@ func main() {
 						if ok {
 							con_map = map[uint32]ConnInfo{} //清空map,防止map无限增大
 							p := gopacket.NewPacket(layer.LayerContents(), LayerTypeZKResp, gopacket.NoCopy)
-							zkRespLayer := p.Layers()[0].(*ZKResp)
+							zkRespLayer, ok := p.Layers()[0].(*ZKResp)
 							if !ok {
 								continue
 							}
