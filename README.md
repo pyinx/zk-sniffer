@@ -23,7 +23,7 @@
 
 ```
 ###### output data struct
-Timestamp ClientAddr ServerAddr OpType Path Zxid ReqLength RespLength Latency
+Timestamp ClientAddr ServerAddr OpType Path Zxid ReqLength RespLength Latency(ms)
 ```
 
 ## Screenshot
