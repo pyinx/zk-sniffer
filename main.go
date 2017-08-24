@@ -17,13 +17,13 @@ var (
 	snapshotLen int32 = 1024
 	promiscuous bool  = true
 	err         error
-	timeout     time.Duration = 3 * time.Second
-	handle      *pcap.Handle
-	ipLayer     *layers.IPv4
-	tcpLayer    *layers.TCP
-	deviceName  *string
-	zkPort      *int
-	pcapFile    *string
+	// timeout     time.Duration = 3 * time.Second
+	handle     *pcap.Handle
+	ipLayer    *layers.IPv4
+	tcpLayer   *layers.TCP
+	deviceName *string
+	zkPort     *int
+	pcapFile   *string
 )
 
 type ConnInfo struct {
@@ -48,8 +48,7 @@ func init() {
 
 func main() {
 	if *pcapFile == "" {
-		// handle, err = pcap.OpenLive(*deviceName, snapshotLen, promiscuous, pcap.BlockForever)
-		handle, err = pcap.OpenLive(*deviceName, snapshotLen, promiscuous, timeout)
+		handle, err = pcap.OpenLive(*deviceName, snapshotLen, promiscuous, pcap.BlockForever)
 		if err != nil {
 			fmt.Printf("Error opening device %s: %v", *deviceName, err)
 			os.Exit(1)
