@@ -17,13 +17,13 @@ var (
 	snapshotLen int32 = 1024
 	promiscuous bool  = true
 	err         error
-	// timeout     time.Duration = -1 * time.Second
-	handle     *pcap.Handle
-	ipLayer    *layers.IPv4
-	tcpLayer   *layers.TCP
-	deviceName *string
-	zkPort     *int
-	pcapFile   *string
+	timeout     time.Duration = 3 * time.Second
+	handle      *pcap.Handle
+	ipLayer     *layers.IPv4
+	tcpLayer    *layers.TCP
+	deviceName  *string
+	zkPort      *int
+	pcapFile    *string
 )
 
 type ConnInfo struct {
@@ -48,7 +48,8 @@ func init() {
 
 func main() {
 	if *pcapFile == "" {
-		handle, err = pcap.OpenLive(*deviceName, snapshotLen, promiscuous, pcap.BlockForever)
+		// handle, err = pcap.OpenLive(*deviceName, snapshotLen, promiscuous, pcap.BlockForever)
+		handle, err = pcap.OpenLive(*deviceName, snapshotLen, promiscuous, timeout)
 		if err != nil {
 			fmt.Printf("Error opening device %s: %v", *deviceName, err)
 			os.Exit(1)
@@ -72,6 +73,7 @@ func main() {
 	// fmt.Println("Start capture packet...")
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	con_map := make(map[uint32]ConnInfo)
+	var raw_p []byte
 	for packet := range packetSource.Packets() {
 		if len(packet.Layers()) > 3 { //LayerTypeEthernet&&LayerTypeIPv4&&LayerTypeTCP&&LayerCustom
 			info := ConnInfo{}
@@ -96,7 +98,15 @@ func main() {
 				// case gopacket.LayerTypePayload:
 				default:
 					if int(tcpLayer.DstPort) == *zkPort {
-						p := gopacket.NewPacket(layer.LayerContents(), LayerTypeZKReq, gopacket.NoCopy)
+						newPacket := layer.LayerContents()
+						if len(layer.LayerContents()) == 4 {
+							raw_p = layer.LayerContents()
+							continue
+						} else {
+							newPacket = append(raw_p, newPacket...)
+							raw_p = []byte{}
+						}
+						p := gopacket.NewPacket(newPacket, LayerTypeZKReq, gopacket.NoCopy)
 						zkReqLayer, ok := p.Layers()[0].(*ZKReq)
 						if !ok {
 							continue
@@ -112,7 +122,7 @@ func main() {
 						if ok {
 							con_map = map[uint32]ConnInfo{} //清空map,防止map无限增大
 							p := gopacket.NewPacket(layer.LayerContents(), LayerTypeZKResp, gopacket.NoCopy)
-							zkRespLayer := p.Layers()[0].(*ZKResp)
+							zkRespLayer, ok := p.Layers()[0].(*ZKResp)
 							if !ok {
 								continue
 							}
